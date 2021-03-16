@@ -2,6 +2,9 @@
 
 
 git clone ${REPOSITORY} --depth=1 dashboards
+ls -l 
+echo "Repo is: ${REPOSITORY}"
+echo "Dash is: ${DASHBOARDS}"
 make -C dashboards build
 pushd dashboards/rendered
 while [[ $(curl -s -o /dev/null -w '%{http_code}' http://localhost:3000/api/health) != "200" ]]; do 
