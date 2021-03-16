@@ -1,4 +1,5 @@
-local grafana = import 'grafonnet/grafana.libsonnet';
+local grafana = import 'grafonnet-lib/grafonnet/grafana.libsonnet';
+local prometheus = grafana.prometheus;
 
 local singlestatHeight = 100;
 local singlestatGuageHeight = 150;
