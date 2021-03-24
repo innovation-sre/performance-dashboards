@@ -4,7 +4,10 @@ local prometheus = grafana.prometheus;
 local singlestatHeight = 100;
 local singlestatGuageHeight = 150;
 
-grafana.dashboard.new('Chaos Dashboard')
+grafana.dashboard.new(
+  'Chaos Dashboard: General performance', 
+  tags=['kubernetes', 'openshift']
+)
 
 
 // Prometheus datasource template variable
@@ -49,6 +52,7 @@ grafana.dashboard.new('Chaos Dashboard')
   },
 )
 
+// Prometheus interval
 .addTemplate(
   grafana.template.new(
     'interval',
@@ -251,10 +255,27 @@ grafana.dashboard.new('Chaos Dashboard')
   )
   .addPanel(
     grafana.singlestat.new(
+      'Container Failed to Start',
+      datasource='$datasource',
+      height=singlestatHeight,
+      gaugeShow=false,
+      colorBackground=true,
+      colors=['rgb(230, 22, 46)'],
+      span=4,
+      thresholds=0,
+    )
+    .addTarget(
+      grafana.prometheus.target(
+        'kube_pod_container_status_waiting_reason{reason!="ContainerCreating",namespace="$namespace"} > 0',
+      )
+    )
+  )
+  .addPanel(
+    grafana.singlestat.new(
       'CPU Cores Requested by Containers',
       datasource='$datasource',
       height=singlestatHeight,
-      span=6,
+      span=4,
       sparklineShow=true,
     )
     .addTarget(
@@ -269,7 +290,7 @@ grafana.dashboard.new('Chaos Dashboard')
       datasource='$datasource',
       format='decbytes',
       height=singlestatHeight,
-      span=6,
+      span=4,
       sparklineShow=true,
     )
     .addTarget(
