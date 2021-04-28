@@ -371,7 +371,7 @@ grafana.dashboard.new(
     )
     .addTarget(
       grafana.prometheus.target(
-        'sum(rate(haproxy_backend_http_responses_total{route="$route",code="5xx"}[1m]))', //add interval variable/tmplate
+        'sum(rate(haproxy_backend_http_responses_total{route="$route",code="5xx"}[$interval]))',
         legendFormat='Error rate - 5xx'
       )
     )
@@ -384,7 +384,7 @@ grafana.dashboard.new(
     )
     .addTarget(
       grafana.prometheus.target(
-        'sum(rate(haproxy_backend_connection_errors_total{route="$route"}[1m]))', //add interval variable/tmplate
+        'sum(rate(haproxy_backend_connection_errors_total{route="$route"}[$interval]))',
         legendFormat='HTTP connection error rate'
       )
     )
