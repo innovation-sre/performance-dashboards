@@ -5,7 +5,7 @@ local singlestatHeight = 100;
 local singlestatGuageHeight = 150;
 
 grafana.dashboard.new(
-  'Chaos Dashboard: Workload performance',
+  'Chaos Dashboard: Workload performance - USE method',
   description='Summary metrics for Openshift/Kubernetes workload',
   tags=['kubernetes', 'openshift'],
   time_from='now-1h',
@@ -17,10 +17,12 @@ grafana.dashboard.new(
     'datasource',
     'prometheus',
     '',
-  )
+  ) {
+    label: 'Datasource'
+  },
 )
 
-// OpenShift project or namespace (workloads)
+// project or namespace (workloads)
 .addTemplate(
   grafana.template.new(
     'namespace',
@@ -37,7 +39,24 @@ grafana.dashboard.new(
   },
 )
 
-// Prometheus interval
+// pod 
+.addTemplate(
+  grafana.template.new(
+    'pod',
+    '$datasource',
+    'label_values(kube_pod_info{namespace="$namespace"}, pod)',
+    '',
+    regex='',
+    refresh=2,
+  ) {
+    label: 'Pod',
+    type: 'query',
+    multi: false,
+    includeAll: true,
+  },
+)
+
+// prometheus interval
 .addTemplate(
   grafana.template.new(
     'interval',
@@ -52,7 +71,7 @@ grafana.dashboard.new(
   },
 )
 
-// Ingress Operator Route
+// Ingress route
 .addTemplate(
   grafana.template.new(
     'route',
@@ -76,25 +95,40 @@ grafana.dashboard.new(
   )
   .addPanel(
     grafana.graphPanel.new(
-      'CPU Utilization',
+      'CPU Utilization (Pod)',
+      format='percent',
       datasource='$datasource',
-      span=6,
+      span=4,
     )
     .addTarget(
       grafana.prometheus.target(
-        'sum(rate(container_cpu_usage_seconds_total{namespace="$namespace"}[$interval])) by (name)',
+        'sum(rate(container_cpu_usage_seconds_total{namespace="$namespace",pod="$pod",container!~"POD"}[$interval])) by (pod)',
+      )
+    )
+  )
+  .addPanel(
+    grafana.graphPanel.new(
+      'CPU Utilization (Workload)',
+      format='percent',
+      datasource='$datasource',
+      span=4,
+    )
+    .addTarget(
+      grafana.prometheus.target(
+        'sum(rate(container_cpu_usage_seconds_total{namespace="$namespace",container!~"POD"}[$interval])) by (pod)',
       )
     )
   )
   .addPanel(
     grafana.graphPanel.new(
       'CPU Saturation',
+      format='percent',
       datasource='$datasource',
-      span=6,
+      span=4,
     )
     .addTarget(
       grafana.prometheus.target(
-        'sum(rate(container_cpu_cfs_throttled_seconds_total{namespace="$namespace"}[$interval])) by (name)',
+        'sum(rate(container_cpu_cfs_throttled_seconds_total{namespace="$namespace",container!~"POD"}[$interval])) by (pod)',
       )
     )
   )
@@ -108,25 +142,40 @@ grafana.dashboard.new(
   )
    .addPanel(
     grafana.graphPanel.new(
-      'Memory Utilization',
+      'Memory Utilization (Pod)',
+      format='bytes',
       datasource='$datasource',
-      span=6,
+      span=4,
     )
     .addTarget(
       grafana.prometheus.target(
-        'sum(container_memory_working_set_bytes{namespace="$namespace"}) by (name)',
+        'sum(container_memory_working_set_bytes{namespace="$namespace",pod="$pod"}) by (pod)',
+      )
+    )
+  )
+  .addPanel(
+    grafana.graphPanel.new(
+      'Memory Utilization (Workload)',
+      format='bytes',
+      datasource='$datasource',
+      span=4,
+    )
+    .addTarget(
+      grafana.prometheus.target(
+        'sum(container_memory_working_set_bytes{namespace="$namespace"}) by (pod)',
       )
     )
   )
   .addPanel(
     grafana.graphPanel.new(
       'Memory Saturation',
+      format='bytes',
       datasource='$datasource',
-      span=6,
+      span=4,
     )
     .addTarget(
       grafana.prometheus.target(
-        'sum(container_memory_working_set_bytes{namespace="$namespace"}) by (name) / sum(label_join(kube_pod_container_resource_limits_memory_bytes,"name", "", "container")) 	by (name)',
+        'sum(container_memory_working_set_bytes{namespace="$namespace"}) by (pod) / sum(label_join(kube_pod_container_resource_limits_memory_bytes,"pod", "", "container")) 	by (name)',
       )
     )
   )
@@ -141,41 +190,43 @@ grafana.dashboard.new(
   .addPanel(
     grafana.graphPanel.new(
       'Bytes write/s',
+      format='bytes',
       datasource='$datasource',
       span=4,
     )
     .addTarget(
       grafana.prometheus.target(
-        'sum(rate(container_fs_writes_bytes_total{namespace="$namespace"}[$interval])) by (name,device)',
+        'sum(rate(container_fs_writes_bytes_total{namespace="$namespace"}[$interval])) by (pod)',
       )
     )
   )
   .addPanel(
     grafana.graphPanel.new(
       'Bytes read/s',
+      format='bytes',
       datasource='$datasource',
       span=4,
     )
     .addTarget(
       grafana.prometheus.target(
-        'sum(rate(container_fs_reads_bytes_total{namespace="$namespace"}[$interval])) by (name,device)',
+        'sum(rate(container_fs_reads_bytes_total{namespace="$namespace"}[$interval])) by (pod)',
       )
     )
   )
   .addPanel(
     grafana.graphPanel.new(
       'Total bytes/s',
+      format='bytes',
       datasource='$datasource',
       span=4,
     )
     .addTarget(
       grafana.prometheus.target(
-        'sum(rate(container_fs_reads_bytes_total{namespace="$namespace"}[$interval])) by (name,device) + sum(rate(container_fs_writes_bytes_total{namespace="$namespace"}[$interval])) by (name,device)',
+        'sum(rate(container_fs_reads_bytes_total{namespace="$namespace"}[$interval])) by (pod) + sum(rate(container_fs_writes_bytes_total{namespace="$namespace"}[$interval])) by (pod)',
       )
     )
   )
 )
-
 
 // Workload Network utilization, saturation and errors
 .addRow(
@@ -187,6 +238,7 @@ grafana.dashboard.new(
   .addPanel(
     grafana.graphPanel.new(
       'Net received bytes/s',
+      format="bytes",
       datasource='$datasource',
       span=3,
     )
@@ -204,7 +256,7 @@ grafana.dashboard.new(
     )
     .addTarget(
       grafana.prometheus.target(
-        'sum(rate(container_network_receive_packets_total{namespace="$namespace"}[$interval])) by (name)',
+        'sum(rate(container_network_receive_packets_total{namespace="$namespace"}[$interval])) by (pod)',
       )
     )
   )
@@ -216,7 +268,7 @@ grafana.dashboard.new(
     )
     .addTarget(
       grafana.prometheus.target(
-        'sum(rate(container_network_receive_errors_total{namespace="$namespace"}[$interval])) by (name)',
+        'sum(rate(container_network_receive_errors_total{namespace="$namespace"}[$interval])) by (pod)',
       )
     )
   )
@@ -228,7 +280,7 @@ grafana.dashboard.new(
     )
     .addTarget(
       grafana.prometheus.target(
-        'sum(rate(container_network_receive_packets_dropped_total{namespace="$namespace"}[$interval])) by (name)',
+        'sum(rate(container_network_receive_packets_dropped_total{namespace="$namespace"}[$interval])) by (pod)',
       )
     )
   )
@@ -237,30 +289,33 @@ grafana.dashboard.new(
   .addPanel(
     grafana.graphPanel.new(
       'Net transmitted bytes/s',
+      format="bytes",
       datasource='$datasource',
       span=3,
     )
     .addTarget(
       grafana.prometheus.target(
-        'sum(rate(container_network_transmit_bytes_total{namespace="$namespace"}[$interval])) by (name)',
+        'sum(rate(container_network_transmit_bytes_total{namespace="$namespace"}[$interval])) by (pod)',
       )
     )
   )
   .addPanel(
     grafana.graphPanel.new(
       'Net transmitted packets/s',
+      format="bytes",
       datasource='$datasource',
       span=3,
     )
     .addTarget(
       grafana.prometheus.target(
-        'sum(rate(container_network_transmit_packets_total{namespace="$namespace"}[$interval])) by (name)',
+        'sum(rate(container_network_transmit_packets_total{namespace="$namespace"}[$interval])) by (pod)',
       )
     )
   )
   .addPanel(
     grafana.graphPanel.new(
       'Net transmitted errors/s',
+      format="bytes",
       datasource='$datasource',
       span=3,
     )
@@ -273,12 +328,13 @@ grafana.dashboard.new(
   .addPanel(
     grafana.graphPanel.new(
       'Net transmitted packet drop/s',
+      format="bytes",
       datasource='$datasource',
       span=3,
     )
     .addTarget(
       grafana.prometheus.target(
-        'sum(rate(container_network_transmit_packets_dropped_total{namespace="$namespace"}[$interval])) by (name)',
+        'sum(rate(container_network_transmit_packets_dropped_total{namespace="$namespace"}[$interval])) by (pod)',
       )
     )
   )
@@ -286,12 +342,13 @@ grafana.dashboard.new(
   .addPanel(
     grafana.graphPanel.new(
       'Net Total bytes/s',
+      format="bytes",
       datasource='$datasource',
       span=12,
     )
     .addTarget(
       grafana.prometheus.target(
-        'sum(rate(container_network_transmit_bytes_total{namespace="$namespace"}[$interval])) by (name) + sum(rate(container_network_receive_bytes_total{namespace="$namespace"}[$interval])) by (name)',
+        'sum(rate(container_network_transmit_bytes_total{namespace="$namespace"}[$interval])) by (pod) + sum(rate(container_network_receive_bytes_total{namespace="$namespace"}[$interval])) by (pod)',
       )
     )
   )
